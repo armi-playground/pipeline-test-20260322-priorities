@@ -11,18 +11,13 @@ use tower_http::cors::{Any, CorsLayer};
 use uuid::Uuid;
 use chrono::Utc;
 
-#[derive(Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Default, Debug)]
 #[serde(rename_all = "lowercase")]
 enum Priority {
-    High,
+    #[default]
     Medium,
+    High,
     Low,
-}
-
-impl Default for Priority {
-    fn default() -> Self {
-        Priority::Medium
-    }
 }
 
 impl Priority {
@@ -120,10 +115,9 @@ async fn list_tasks(
     let mut tasks = state.lock().unwrap().clone();
 
     // Filter by priority if specified
-    if let Some(ref priority_str) = query.priority {
-        if let Some(priority) = Priority::from_str(priority_str) {
-            tasks.retain(|t| t.priority == priority);
-        }
+    if let Some(ref priority_str) = query.priority
+        && let Some(priority) = Priority::from_str(priority_str) {
+        tasks.retain(|t| t.priority == priority);
     }
 
     // Sort tasks
@@ -215,4 +209,62 @@ async fn delete_task(
 #[derive(Serialize)]
 struct ErrorResponse {
     error: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_priority_from_str_valid() {
+        assert_eq!(Priority::from_str("high"), Some(Priority::High));
+        assert_eq!(Priority::from_str("medium"), Some(Priority::Medium));
+        assert_eq!(Priority::from_str("low"), Some(Priority::Low));
+    }
+
+    #[test]
+    fn test_priority_from_str_case_insensitive() {
+        assert_eq!(Priority::from_str("HIGH"), Some(Priority::High));
+        assert_eq!(Priority::from_str("Medium"), Some(Priority::Medium));
+        assert_eq!(Priority::from_str("LOW"), Some(Priority::Low));
+    }
+
+    #[test]
+    fn test_priority_from_str_invalid() {
+        assert_eq!(Priority::from_str("invalid"), None);
+        assert_eq!(Priority::from_str(""), None);
+        assert_eq!(Priority::from_str("critical"), None);
+    }
+
+    #[test]
+    fn test_priority_default() {
+        assert_eq!(Priority::default(), Priority::Medium);
+    }
+
+    #[test]
+    fn test_priority_sort_order() {
+        assert_eq!(Priority::High.sort_order(), 0);
+        assert_eq!(Priority::Medium.sort_order(), 1);
+        assert_eq!(Priority::Low.sort_order(), 2);
+    }
+
+    #[test]
+    fn test_priority_ordering() {
+        // High should sort before Medium, Medium before Low
+        assert!(Priority::High.sort_order() < Priority::Medium.sort_order());
+        assert!(Priority::Medium.sort_order() < Priority::Low.sort_order());
+    }
+
+    #[test]
+    fn test_task_default_priority() {
+        let task = Task {
+            id: "test-id".to_string(),
+            title: "Test Task".to_string(),
+            description: "Test description".to_string(),
+            completed: false,
+            priority: Priority::default(),
+            created_at: "2024-01-01T00:00:00Z".to_string(),
+        };
+        assert_eq!(task.priority, Priority::Medium);
+    }
 }
