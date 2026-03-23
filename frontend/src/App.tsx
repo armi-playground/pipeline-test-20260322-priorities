@@ -176,6 +176,7 @@ function App() {
   const [priority, setPriority] = useState<Priority>('medium')
   const [filter, setFilter] = useState<FilterPriority>('all')
   const [sort, setSort] = useState<SortOrder>('priority')
+  const [error, setError] = useState<string | null>(null)
 
   const buildUrl = () => {
     const params = new URLSearchParams()
@@ -186,9 +187,11 @@ function App() {
   }
 
   useEffect(() => {
+    setError(null)
     fetch(buildUrl())
       .then((r) => r.json())
       .then(setTasks)
+      .catch((err) => setError('Failed to load tasks. Please try again.'))
   }, [filter, sort])
 
   const addTask = async () => {
@@ -200,7 +203,7 @@ function App() {
     })
     if (res.ok) {
       const task = await res.json()
-      setTasks([...tasks, task])
+      setTasks((prev) => [...prev, task])
       setTitle('')
       setDescription('')
       setPriority('medium')
@@ -220,6 +223,12 @@ function App() {
       </div>
 
       <FilterBar filter={filter} onFilterChange={setFilter} />
+
+      {error && (
+        <div style={{ padding: '0.75rem', marginBottom: '1rem', backgroundColor: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 6, color: '#DC2626', fontSize: 14 }}>
+          {error}
+        </div>
+      )}
 
       <div style={{ marginBottom: '1.5rem', padding: '1rem', backgroundColor: '#FAFAFA', borderRadius: 8, border: '1px solid #E5E7EB' }}>
         <h2 style={{ margin: '0 0 1rem', fontSize: '1rem' }}>Create Task</h2>
